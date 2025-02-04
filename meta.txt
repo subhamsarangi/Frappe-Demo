@@ -1,0 +1,71 @@
+## INSTALL
+Note: make sure the ubuntu version is 22.xx
+
+chmod +x install.sh
+sudo ./install.sh
+
+## LOGIN TO THE USER
+sudo su - test
+
+## START THE SERVER
+cd /var/bench/frappe-bench15_84577f32
+bench start
+
+Open browser localhost:8000
+username: Administrator
+
+## CREATE PROJECT
+### to create a new app and a site
+bench new-app todo_app
+bench new-site todo.localhost
+
+### install the app in the site
+bench --site todo.localhost install-app todo_app
+
+### make that site the default one
+bench use todo.localhost
+
+### show Task list
+http://127.0.0.1:8000/app/task
+
+### create client script in Connections and apply to Form
+```
+frappe.ui.form.on('Task', {
+    refresh: function(frm) {
+        frm.add_custom_button(__('Mark as Done'), function() {
+            frm.set_value('status', 'done');
+            frm.save();
+        });
+    }
+});
+```
+
+
+### add Report of type 'Query Report' in Connections
+SELECT status, count(*) as 'count' FROM `tabTask` GROUP BY status;
+
+- See report
+http://127.0.0.1:8000/app/query-report/Summary%20of%20Tasks
+
+### add Dashboard and then Dashboard Chart
+- See Dashboard
+http://127.0.0.1:8000/app/dashboard-view/TODO%20DASHBOARD
+
+### export fixtures
+nano /var/bench/frappe-bench15_84577f32/apps/todo_app/todo_app/hooks.py
+
+```python
+fixtures = [
+    {"doctype": "Client Script", "filters": [["dt", "=", "Task"]]},
+    {"doctype": "Dashboard Chart"},
+    {"doctype": "Report", "filters": [["report_type", "=", "Query Report"]]}
+]
+```
+
+bench export-fixtures --app todo_app
+
+### zip the codes
+zip -r todo_app.zip .
+
+### view in windows 
+/mnt/c/Windows/explorer.exe .

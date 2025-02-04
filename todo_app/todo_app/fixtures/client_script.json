@@ -1,0 +1,13 @@
+[
+ {
+  "docstatus": 0,
+  "doctype": "Client Script",
+  "dt": "Task",
+  "enabled": 1,
+  "modified": "2025-02-04 23:36:05.923005",
+  "module": "Todo App",
+  "name": "Mark as Done",
+  "script": "frappe.ui.form.on('Task', {\r\n    refresh: function(frm) {\r\n        frm.add_custom_button(__('Mark as Done'), function() {\r\n            frm.set_value('status', 'done');\r\n            frm.save();\r\n        });\r\n    }\r\n});\r\n",
+  "view": "Form"
+ }
+]
