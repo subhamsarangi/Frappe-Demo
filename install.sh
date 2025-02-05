@@ -1,5 +1,8 @@
 #!/bin/bash
 
+export HOME=/tmp
+export TMPDIR=/tmp
+
 set -e  # Exit immediately if a command exits with a non-zero status
 
 # ----------------------------
@@ -149,6 +152,7 @@ install_mariadb() {
 }
 
 # Start MariaDB Service with Unique Configuration
+
 start_mariadb() {
     echo -e "${BLUE}Starting MariaDB service with unique configuration...${NC}"
 
@@ -166,6 +170,8 @@ start_mariadb() {
     mkdir -p "$DATA_DIR"
     chown -R mysql:mysql /var/run/mysqld
     chown -R mysql:mysql "$DATA_DIR"
+    chmod 755 /var/run/mysqld
+    chmod 755 "$DATA_DIR"
 
     # Initialize the database if it doesn't exist
     if [ ! -d "$DATA_DIR/mysql" ]; then
@@ -189,23 +195,53 @@ character-set-client-handshake = FALSE
 socket = $SOCKET_FILE
 EOF
 
+    # Stop any existing MariaDB instance before starting a new one
+    if systemctl is-active --quiet mariadb; then
+        echo -e "${YELLOW}Stopping existing MariaDB service...${NC}"
+        sudo systemctl stop mariadb
+    fi
+
     # Start MariaDB with custom configuration
-    mysqld_safe --defaults-extra-file="$CUSTOM_CNF" &
+    echo -e "${BLUE}Starting MariaDB using mysqld_safe...${NC}"
+    mysqld_safe --defaults-extra-file="$CUSTOM_CNF" & 
 
     # Wait until MariaDB is running
-    for i in {1..10}; do
+    for i in {1..20}; do  # Increased to 40 seconds max wait
         if mysqladmin --socket="$SOCKET_FILE" ping --silent; then
             echo -e "${GREEN}MariaDB is running.${NC}"
             return 0
         else
-            echo -e "${YELLOW}Waiting for MariaDB to start... ($i/10)${NC}"
+            echo -e "${YELLOW}Waiting for MariaDB to start... ($i/20)${NC}"
             sleep 2
         fi
     done
 
+    # Failure handling
     echo -e "${RED}MariaDB did not start within the expected time.${NC}"
+    
+    # Check if MariaDB is running via systemctl
+    if systemctl is-active --quiet mariadb; then
+        echo -e "${YELLOW}MariaDB is running under systemd, not mysqld_safe.${NC}"
+        systemctl status mariadb
+        return 0
+    fi
+
+    # Check if another instance is running
+    echo -e "${YELLOW}Checking if another MariaDB instance is running...${NC}"
+    ps aux | grep mysqld | grep -v grep
+
+    # Check the actual socket being used
+    echo -e "${YELLOW}Checking active MySQL socket...${NC}"
+    mysqladmin variables | grep socket || echo "Could not retrieve socket info."
+
+    # Check logs for errors
+    echo -e "${YELLOW}Checking MariaDB logs for errors...${NC}"
+    journalctl -u mariadb --no-pager --lines=50
+    cat /var/log/mysql/error.log 2>/dev/null || echo "No error log found."
+
     exit 1
 }
+
 
 # Secure MariaDB Installation
 secure_mariadb() {
